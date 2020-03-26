@@ -1,0 +1,25 @@
+language: cpp
+compiler:
+  - gcc-5
+os:
+  - linux
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-5
+      - g++-5
+
+script:
+  - mkdir Projects/CMake/Build -p
+  - cd Projects/CMake/Build
+  - export CC=gcc-5
+  - export CXX=g++-5
+  - cmake --version
+  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact
+  - make
+  - make install
+  - ./Artifact/bin/Test
+after_success:

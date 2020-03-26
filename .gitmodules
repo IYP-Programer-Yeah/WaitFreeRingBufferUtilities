@@ -1,0 +1,45 @@
+[submodule "Dependencies/googletest"]
+	path = Dependencies/googletest
+	url = https://github.com/google/googletest
+[submodule "Dependencies/boost/optional"]
+	path = Dependencies/boost/optional
+	url = https://github.com/boostorg/optional
+[submodule "Dependencies/boost/utility"]
+	path = Dependencies/boost/utility
+	url = https://github.com/boostorg/utility
+[submodule "Dependencies/boost/type_traits"]
+	path = Dependencies/boost/type_traits
+	url = https://github.com/boostorg/type_traits
+[submodule "Dependencies/boost/static_assert"]
+	path = Dependencies/boost/static_assert
+	url = https://github.com/boostorg/static_assert
+[submodule "Dependencies/boost/throw_exception"]
+	path = Dependencies/boost/throw_exception
+	url = https://github.com/boostorg/throw_exception
+[submodule "Dependencies/boost/predef"]
+	path = Dependencies/boost/predef
+	url = https://github.com/boostorg/predef
+[submodule "Dependencies/boost/move"]
+	path = Dependencies/boost/move
+	url = https://github.com/boostorg/move
+[submodule "Dependencies/boost/core"]
+	path = Dependencies/boost/core
+	url = https://github.com/boostorg/core
+[submodule "Dependencies/boost/config"]
+	path = Dependencies/boost/config
+	url = https://github.com/boostorg/config
+[submodule "Dependencies/boost/assert"]
+	path = Dependencies/boost/assert
+	url = https://github.com/boostorg/assert
+[submodule "Dependencies/boost/detail"]
+	path = Dependencies/boost/detail
+	url = https://github.com/boostorg/detail
+[submodule "Dependencies/boost/preprocessor"]
+	path = Dependencies/boost/preprocessor
+	url = https://github.com/boostorg/preprocessor
+[submodule "Dependencies/boost/container_hash"]
+	path = Dependencies/boost/container_hash
+	url = https://github.com/boostorg/container_hash
+[submodule "Dependencies/boost/integer"]
+	path = Dependencies/boost/integer
+	url = https://github.com/boostorg/integer
