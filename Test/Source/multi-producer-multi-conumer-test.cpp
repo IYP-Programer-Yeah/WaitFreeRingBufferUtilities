@@ -84,8 +84,7 @@ TEST(MultiProducerMultiConsumerRingBufferTest, OrderedPushPop)
 
 TEST(MultiProducerMultiConsumerRingBufferTest, MultiProducerMultiConsumerPushPopIntergrity)
 {
-
-	constexpr std::size_t NumberOfTries = 16;
+	constexpr std::size_t NumberOfTries = 256;
 	constexpr std::size_t NumberOfPusherThreads = 4;
 	constexpr std::size_t NumberOfPopperThreads = 4;
 
@@ -149,6 +148,42 @@ TEST(MultiProducerMultiConsumerRingBufferTest, MultiProducerMultiConsumerPushPop
 
 TEST(MultiProducerMultiConsumerRingBufferTest, MultiProducerSingleConsumerOrderedPushPop)
 {
+	constexpr std::size_t NumberOfPusherThreads = 7;
+
+	std::vector<std::thread> pushers;
+	TestRingBufferType ring;
+
+	for (std::size_t thread_number = 0; thread_number < NumberOfPusherThreads; thread_number++)
+	{
+		pushers.emplace_back([&ring, NumberOfPusherThreads, thread_number]() {
+			const auto thread_offset = thread_number * RingSize;
+			for (std::size_t i = 0; i < RingSize; i++)
+			{
+				while (!ring.push(i + thread_offset))
+				{
+				}
+			}
+		});
+	}
+
+	std::array<std::size_t, NumberOfPusherThreads> expected_popped_element{0};
+
+	for (std::size_t i = 0; i < NumberOfPusherThreads * RingSize; i++)
+	{
+		while (true)
+		{
+			const auto popped_element = ring.pop();
+			if (popped_element)
+			{
+				const auto element = *popped_element;
+				EXPECT_EQ(element % RingSize, expected_popped_element[element / RingSize]++);
+				break;
+			}
+		}
+	}
+
+	for (auto &pusher : pushers)
+		pusher.join();
 }
 } // namespace MultiProducerMultiConsumerRingBufferTest
 } // namespace Iyp
