@@ -5,7 +5,8 @@ include_directories(${LOCAL_INCLUDE_DIR})
 
 file(GLOB_RECURSE CPP_FILES ${REPO_ROOT}/${PROJECT_NAME}/Source/*.cpp)
 add_executable(${PROJECT_NAME} ${CPP_FILES})
-target_link_libraries(${PROJECT_NAME} gtest gtest_main WaitFreeRingBufferUtilities)
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} gtest gtest_main WaitFreeRingBufferUtilities Threads::Threads)
 
 if (MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")

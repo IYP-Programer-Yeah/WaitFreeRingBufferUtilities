@@ -1,1 +1,1 @@
-add_subdirectory(${REPO_ROOT}/Dependencies/boost/detail boost)
+add_subdirectory(${REPO_ROOT}/Dependencies/boost/detail boost/)
