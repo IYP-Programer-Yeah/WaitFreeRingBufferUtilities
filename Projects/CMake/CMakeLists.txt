@@ -16,4 +16,5 @@ add_subdirectory(googletest)
 add_subdirectory(boost)
 add_subdirectory(WaitFreeRingBufferUtilities)
 add_subdirectory(Test)
+add_subdirectory(Example)
 
