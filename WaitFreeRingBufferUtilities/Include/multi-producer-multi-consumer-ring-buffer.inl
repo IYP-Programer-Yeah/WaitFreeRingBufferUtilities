@@ -23,12 +23,12 @@ class RingBuffer<T, AccessRequirements::MULTI_CONSUMER | AccessRequirements::MUL
 
 	struct Element
 	{
+		Details::CacheAlignedAndPaddedObject<std::atomic_bool> is_popper_processing;
+		Details::CacheAlignedAndPaddedObject<std::atomic_bool> is_pusher_processing;
 		std::atomic_bool is_free;
-		std::atomic_bool is_popper_processing;
-		std::atomic_bool is_pusher_processing;
 		alignas(alignof(T)) char memory[sizeof(T)];
 
-		Element() : is_free(true), is_popper_processing(false), is_pusher_processing(false)
+		Element() : is_popper_processing(false), is_pusher_processing(false), is_free(true)
 		{
 		}
 
