@@ -31,12 +31,12 @@ constexpr AccessRequirements operator&(const AccessRequirements lhs, const Acces
     return static_cast<AccessRequirements>(static_cast<std::underlying_type<AccessRequirements>::type>(lhs) & static_cast<std::underlying_type<AccessRequirements>::type>(rhs));
 }
 
-AccessRequirements &operator|=(AccessRequirements &lhs, const AccessRequirements rhs)
+inline AccessRequirements &operator|=(AccessRequirements &lhs, const AccessRequirements rhs)
 {
     return (lhs = static_cast<AccessRequirements>(static_cast<std::underlying_type<AccessRequirements>::type>(lhs) | static_cast<std::underlying_type<AccessRequirements>::type>(rhs)));
 }
 
-AccessRequirements &operator&=(AccessRequirements &lhs, const AccessRequirements rhs)
+inline AccessRequirements &operator&=(AccessRequirements &lhs, const AccessRequirements rhs)
 {
     return (lhs = static_cast<AccessRequirements>(static_cast<std::underlying_type<AccessRequirements>::type>(lhs) & static_cast<std::underlying_type<AccessRequirements>::type>(rhs)));
 }
