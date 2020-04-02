@@ -24,10 +24,10 @@ class RingBuffer<T, AccessRequirements::SINGLE_CONSUMER | AccessRequirements::SI
 
     struct Element
     {
-        std::atomic_bool is_free;
+        std::atomic<T *> value_ptr;
         typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
 
-        Element() : is_free(true)
+        Element() : value_ptr(nullptr)
         {
         }
 
@@ -39,8 +39,9 @@ class RingBuffer<T, AccessRequirements::SINGLE_CONSUMER | AccessRequirements::SI
 
         ~Element()
         {
-            if (!is_free.load(std::memory_order_relaxed))
-                reinterpret_cast<T *>(&storage)->~T();
+            const auto local_value_ptr = value_ptr.load(std::memory_order_relaxed);
+            if (local_value_ptr)
+                local_value_ptr->~T();
         }
     };
 
@@ -77,12 +78,11 @@ public:
         {
             const std::size_t element_index = (end.value++) & COUNT_MASK;
 
-            if (!elements[element_index].is_free.load(std::memory_order_relaxed))
+            if (elements[element_index].value_ptr.load(std::memory_order_relaxed))
                 continue;
 
-            new (&elements[element_index].storage) T(std::forward<Args>(args)...);
-
-            elements[element_index].is_free.store(false, std::memory_order_release);
+            elements[element_index].value_ptr.store(new (&elements[element_index].storage) T(std::forward<Args>(args)...),
+                                                    std::memory_order_release);
             pop_task_count.fetch_add(1, std::memory_order_release);
 
             return true;
@@ -101,14 +101,14 @@ public:
         {
             const std::size_t element_index = (begin.value++) & COUNT_MASK;
 
-            if (elements[element_index].is_free.load(std::memory_order_relaxed))
+            const auto value_ptr = elements[element_index].value_ptr.load(std::memory_order_relaxed);
+            if (!value_ptr)
                 continue;
 
-            auto &back = (*reinterpret_cast<T *>(&elements[element_index].storage));
-            OptionalType<T> result{std::move(back)};
-            back.~T();
+            OptionalType<T> result{std::move(*value_ptr)};
+            value_ptr->~T();
 
-            elements[element_index].is_free.store(true, std::memory_order_release);
+            elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
             push_task_count.fetch_add(1, std::memory_order_release);
 
             return result;
