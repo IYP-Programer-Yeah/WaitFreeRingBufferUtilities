@@ -10,7 +10,6 @@ namespace Iyp
 {
 namespace MultiProducerMultiConsumerRingBufferTest
 {
-
 constexpr static std::size_t RingSize = 4096;
 using TestRingBufferType = WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
                                                                    WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
