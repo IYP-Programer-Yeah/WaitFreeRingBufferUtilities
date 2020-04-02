@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <atomic>
 #include <array>
+#include <type_traits>
 
 namespace Iyp
 {
@@ -25,10 +26,10 @@ class RingBuffer<T, AccessRequirements::MULTI_CONSUMER | AccessRequirements::MUL
     {
         Details::CacheAlignedAndPaddedObject<std::atomic_bool> is_popper_processing;
         Details::CacheAlignedAndPaddedObject<std::atomic_bool> is_pusher_processing;
-        std::atomic_bool is_free;
-        alignas(alignof(T)) char memory[sizeof(T)];
+        std::atomic<T *> value_ptr;
+        typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
 
-        Element() : is_popper_processing(false), is_pusher_processing(false), is_free(true)
+        Element() : is_popper_processing(false), is_pusher_processing(false), value_ptr(nullptr)
         {
         }
 
@@ -40,8 +41,9 @@ class RingBuffer<T, AccessRequirements::MULTI_CONSUMER | AccessRequirements::MUL
 
         ~Element()
         {
-            if (!is_free.load(std::memory_order_relaxed))
-                reinterpret_cast<T *>(memory)->~T();
+            const auto local_value_ptr = value_ptr.load(std::memory_order_relaxed);
+            if (local_value_ptr)
+                local_value_ptr->~T();
         }
     };
 
@@ -75,15 +77,14 @@ public:
             bool expected_is_pusher_processing = false;
             if (std::atomic_compare_exchange_strong(&elements[element_index].is_pusher_processing, &expected_is_pusher_processing, true))
             {
-                if (!elements[element_index].is_free.load(std::memory_order_relaxed))
+                if (elements[element_index].value_ptr.load(std::memory_order_relaxed))
                 {
                     elements[element_index].is_pusher_processing.store(false, std::memory_order_release);
                     continue;
                 }
 
-                new (&elements[element_index].memory) T(std::forward<Args>(args)...);
-
-                elements[element_index].is_free.store(false, std::memory_order_release);
+                elements[element_index].value_ptr.store(new (&elements[element_index].storage) T(std::forward<Args>(args)...),
+                                                        std::memory_order_release);
                 pop_task_count.fetch_add(1, std::memory_order_release);
 
                 elements[element_index].is_pusher_processing.store(false, std::memory_order_release);
@@ -108,17 +109,17 @@ public:
             bool expected_is_popper_processing = false;
             if (std::atomic_compare_exchange_strong(&elements[element_index].is_popper_processing, &expected_is_popper_processing, true))
             {
-                if (elements[element_index].is_free.load(std::memory_order_relaxed))
+                const auto value_ptr = elements[element_index].value_ptr.load(std::memory_order_relaxed);
+                if (!value_ptr)
                 {
                     elements[element_index].is_popper_processing.store(false, std::memory_order_release);
                     continue;
                 }
 
-                auto &back = (*reinterpret_cast<T *>(&elements[element_index].memory));
-                OptionalType<T> result{std::move(back)};
-                back.~T();
+                OptionalType<T> result{std::move(*value_ptr)};
+                value_ptr->~T();
 
-                elements[element_index].is_free.store(true, std::memory_order_release);
+                elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
                 push_task_count.fetch_add(1, std::memory_order_release);
 
                 elements[element_index].is_popper_processing.store(false, std::memory_order_release);
