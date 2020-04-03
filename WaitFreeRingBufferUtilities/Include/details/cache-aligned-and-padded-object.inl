@@ -36,8 +36,8 @@ struct alignas(least_common_multiple(AlignmentSize, alignof(T))) AlignedPaddedOb
     AlignedPaddedObjectImpl() = default;
 
     template <typename Arg, typename... Args>
-    explicit AlignedPaddedObjectImpl(Arg &&arg, Args &&... args) : T(std::forward<Arg>(arg),
-                                                                     std::forward<Args>(args)...)
+    explicit AlignedPaddedObjectImpl(Arg &&arg, Args &&... args) : T{std::forward<Arg>(arg),
+                                                                     std::forward<Args>(args)...}
     {
     }
 };
@@ -50,8 +50,8 @@ struct alignas(least_common_multiple(AlignmentSize, alignof(T))) AlignedPaddedOb
     AlignedPaddedObjectImpl() = default;
 
     template <typename Arg, typename... Args>
-    explicit AlignedPaddedObjectImpl(Arg &&arg, Args &&... args) : T(std::forward<Arg>(arg),
-                                                                     std::forward<Args>(args)...)
+    explicit AlignedPaddedObjectImpl(Arg &&arg, Args &&... args) : T{std::forward<Arg>(arg),
+                                                                     std::forward<Args>(args)...}
     {
     }
 };

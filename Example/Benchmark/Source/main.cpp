@@ -73,7 +73,7 @@ int main()
     constexpr static std::size_t RingSize = 1024;
 
     {
-        std::cout << "Running benchmark on MPMC queue." << std::endl;
+        std::cout << "Running benchmark on MCMP queue." << std::endl;
         using McmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
                                                                                 Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
                                                                                     Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_PRODUCER,
@@ -83,7 +83,7 @@ int main()
     }
 
     {
-        std::cout << "Running benchmark on SPSC queue." << std::endl;
+        std::cout << "Running benchmark on SCSP queue." << std::endl;
         using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
                                                                                 Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_CONSUMER |
                                                                                     Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
