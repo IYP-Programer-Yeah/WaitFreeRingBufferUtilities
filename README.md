@@ -15,7 +15,7 @@ Boost optional.
 
 # Motives
 
-## Most of the available libraries do no support C++ objects
+## Most of the available libraries do not support C++ objects
 
 Most of the available libraries do no support C++ objects at all, or if they do they don't support it properly.
 Available libraries are usually writen in C and support pointers only. This usually results in difficulties in memory management and
