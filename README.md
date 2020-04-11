@@ -31,5 +31,5 @@ Being lock-free doesn't necessarily gaurantee that threads are not going to wait
 I have two blog post on this ring buffer design. One explaining the algorithm itself, and the part two providing some benchmark
 comparisons:
 
-[Part 1](https://iyp.home.blog/2019/11/14/what-to-do-when-your-ring-buffers-are-tired-of-waiting/)
-[Part 2](https://iyp.home.blog/2020/04/05/what-to-do-when-your-ring-buffers-are-tired-of-waiting-pt-2/)
++ [Part 1](https://iyp.home.blog/2019/11/14/what-to-do-when-your-ring-buffers-are-tired-of-waiting/)
++ [Part 2](https://iyp.home.blog/2020/04/05/what-to-do-when-your-ring-buffers-are-tired-of-waiting-pt-2/)
