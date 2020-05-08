@@ -18,7 +18,7 @@ std::pair<std::size_t, std::chrono::nanoseconds> run_benchmark(RingType &ring)
 
     for (std::size_t thread_number = 0; thread_number < NumberOfPopperThreads; thread_number++)
     {
-        poppers.emplace_back([&ring, PushCount]() {
+        poppers.emplace_back([&ring]() {
             for (std::size_t i = 0; i < PushCount * NumberOfPusherThreads; i++)
                 while (!ring.pop())
                 {
@@ -30,7 +30,7 @@ std::pair<std::size_t, std::chrono::nanoseconds> run_benchmark(RingType &ring)
 
     for (std::size_t thread_number = 0; thread_number < NumberOfPusherThreads; thread_number++)
     {
-        pushers.emplace_back([&ring, &do_push, PushCount]() mutable {
+        pushers.emplace_back([&ring, &do_push]() mutable {
             while (!do_push.load(std::memory_order_relaxed))
             {
             }
@@ -80,6 +80,26 @@ int main()
                                                                                 RingSize>;
         McmpRingBufferType ring;
         run_benchmark_and_print_results<4, 4>(ring);
+    }
+
+    {
+        std::cout << "Running benchmark on MCSP queue." << std::endl;
+        using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
+                                                                                Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
+                                                                                    Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
+                                                                                RingSize>;
+        ScspRingBufferType ring;
+        run_benchmark_and_print_results<1, 7>(ring);
+    }
+
+    {
+        std::cout << "Running benchmark on SCMP queue." << std::endl;
+        using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
+                                                                                Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_CONSUMER |
+                                                                                    Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_PRODUCER,
+                                                                                RingSize>;
+        ScspRingBufferType ring;
+        run_benchmark_and_print_results<7, 1>(ring);
     }
 
     {
