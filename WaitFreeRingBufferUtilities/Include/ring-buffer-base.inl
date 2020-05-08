@@ -104,7 +104,7 @@ struct SizeTWrapper
     }
 };
 
-template <typename Element, std::size_t Count, typename BeginType, typename EndType>
+template <typename Element, std::size_t Count>
 struct RingBufferStateBase
 {
 protected:
@@ -115,20 +115,13 @@ protected:
         COUNT_MASK = Count - 1,
     };
 
-    Details::CacheAlignedAndPaddedObject<BeginType> begin;
-    Details::CacheAlignedAndPaddedObject<EndType> end;
-    Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count;
-    Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count;
-    std::array<Details::CacheAlignedAndPaddedObject<Element>, Count> elements;
+    std::array<Details::CacheAlignedAndPaddedObject<Element>, Count> elements{};
+    Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t(0)};
+    Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(Count)};
 
 public:
     static_assert(Count > 0 && !(COUNT_MASK & Count), "Count should be a power of two.");
     static_assert(Count <= static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max()), "Count exceeds the maximum. Count should fit in a std::int64_t.");
-
-    RingBufferStateBase() : begin(std::size_t(0)), end(std::size_t(0)),
-                            pop_task_count(std::int64_t(0)), push_task_count(static_cast<std::int64_t>(Count)), elements{}
-    {
-    }
 };
 
 #ifdef __cpp_lib_optional
@@ -142,6 +135,10 @@ using OptionalType = boost::optional<T>;
 template <typename BaseType>
 struct MultiProducerBehaviour : BaseType
 {
+private:
+    Details::CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
+
+public:
     using ElementType = typename BaseType::ElementType;
 
     template <typename... Args>
@@ -155,7 +152,7 @@ struct MultiProducerBehaviour : BaseType
 
         while (true)
         {
-            const std::size_t local_end = BaseType::end.fetch_add(1, std::memory_order_acquire);
+            const std::size_t local_end = end.fetch_add(1, std::memory_order_acquire);
             const std::size_t element_index = local_end & BaseType::COUNT_MASK;
             bool expected_is_pusher_processing = false;
             if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].is_pusher_processing, &expected_is_pusher_processing, true))
@@ -180,6 +177,10 @@ struct MultiProducerBehaviour : BaseType
 template <typename BaseType>
 struct MultiConsumerBehaviour : BaseType
 {
+private:
+    Details::CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
+
+public:
     using ElementType = typename BaseType::ElementType;
 
     OptionalType<ElementType> pop()
@@ -192,7 +193,7 @@ struct MultiConsumerBehaviour : BaseType
 
         while (true)
         {
-            const std::size_t local_begin = BaseType::begin.fetch_add(1, std::memory_order_acquire);
+            const std::size_t local_begin = begin.fetch_add(1, std::memory_order_acquire);
 
             const std::size_t element_index = local_begin & BaseType::COUNT_MASK;
             bool expected_is_popper_processing = false;
@@ -221,6 +222,10 @@ struct MultiConsumerBehaviour : BaseType
 template <typename BaseType>
 struct SingleProducerBehaviour : BaseType
 {
+private:
+    Details::CacheAlignedAndPaddedObject<SizeTWrapper> end{std::size_t(0)};
+
+public:
     using ElementType = typename BaseType::ElementType;
 
     template <typename... Args>
@@ -234,16 +239,16 @@ struct SingleProducerBehaviour : BaseType
 
         while (true)
         {
-            const std::size_t element_index = (BaseType::end.value++) & BaseType::COUNT_MASK;
+            const std::size_t element_index = (end.value++) & BaseType::COUNT_MASK;
 
-            if (BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed))
-                continue;
+            if (!BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed))
+            {
+                BaseType::elements[element_index].value_ptr.store(new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...),
+                                                                  std::memory_order_release);
+                BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
 
-            BaseType::elements[element_index].value_ptr.store(new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...),
-                                                              std::memory_order_release);
-            BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
-
-            return true;
+                return true;
+            }
         }
     }
 };
@@ -251,6 +256,10 @@ struct SingleProducerBehaviour : BaseType
 template <typename BaseType>
 struct SingleConsumerBehaviour : BaseType
 {
+private:
+    Details::CacheAlignedAndPaddedObject<SizeTWrapper> begin{std::size_t(0)};
+
+public:
     using ElementType = typename BaseType::ElementType;
 
     OptionalType<ElementType> pop()
@@ -263,19 +272,19 @@ struct SingleConsumerBehaviour : BaseType
 
         while (true)
         {
-            const std::size_t element_index = (BaseType::begin.value++) & BaseType::COUNT_MASK;
+            const std::size_t element_index = (begin.value++) & BaseType::COUNT_MASK;
 
             const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed);
-            if (!value_ptr)
-                continue;
+            if (value_ptr)
+            {
+                OptionalType<ElementType> result{std::move(*value_ptr)};
+                value_ptr->~ElementType();
 
-            OptionalType<ElementType> result{std::move(*value_ptr)};
-            value_ptr->~ElementType();
+                BaseType::elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
+                BaseType::push_task_count.fetch_add(1, std::memory_order_release);
 
-            BaseType::elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
-            BaseType::push_task_count.fetch_add(1, std::memory_order_release);
-
-            return result;
+                return result;
+            }
         }
     }
 };

@@ -13,7 +13,7 @@ template <typename T, std::size_t Count>
 struct RingBuffer<T,
                   AccessRequirements::MULTI_CONSUMER | AccessRequirements::SINGLE_PRODUCER,
                   Count> : SingleProducerBehaviour<MultiConsumerBehaviour<RingBufferStateBase<Element<T, MultiConsumerElementFeature>,
-                                                                                              Count, std::atomic_size_t, SizeTWrapper>>>
+                                                                                              Count>>>
 {
 };
 } // namespace WaitFreeRingBufferUtilities
