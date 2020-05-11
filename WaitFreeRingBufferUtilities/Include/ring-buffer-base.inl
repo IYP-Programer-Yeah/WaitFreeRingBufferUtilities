@@ -157,9 +157,9 @@ public:
             bool expected_is_pusher_processing = false;
             if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].is_pusher_processing, &expected_is_pusher_processing, true))
             {
-                if (BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed))
+                if (BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire))
                 {
-                    BaseType::elements[element_index].is_pusher_processing.store(false, std::memory_order_release);
+                    BaseType::elements[element_index].is_pusher_processing.store(false, std::memory_order_relaxed);
                     continue;
                 }
 
@@ -199,10 +199,10 @@ public:
             bool expected_is_popper_processing = false;
             if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].is_popper_processing, &expected_is_popper_processing, true))
             {
-                const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed);
+                const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire);
                 if (!value_ptr)
                 {
-                    BaseType::elements[element_index].is_popper_processing.store(false, std::memory_order_release);
+                    BaseType::elements[element_index].is_popper_processing.store(false, std::memory_order_relaxed);
                     continue;
                 }
 
