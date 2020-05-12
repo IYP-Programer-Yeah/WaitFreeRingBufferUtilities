@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Iyp/WaitFreeRingBufferUtilities/ring-buffer-base.inl"
+#include "Iyp/WaitFreeRingBufferUtilities/details/ring-buffer-type-constructor.inl"
 
 #include <cstdlib>
 
@@ -11,7 +12,9 @@ namespace WaitFreeRingBufferUtilities
 template <typename T, std::size_t Count>
 struct RingBuffer<T,
                   AccessRequirements::SINGLE_CONSUMER | AccessRequirements::SINGLE_PRODUCER,
-                  Count> : SingleProducerBehaviour<SingleConsumerBehaviour<RingBufferStateBase<Element<T>, Count>>>
+                  Count> : Details::RingBufferTypeConstructor<Details::SingleProducerTypeTraits,
+                                                              Details::SingleConsumerTypeTraits,
+                                                              T, Count>
 {
 };
 } // namespace WaitFreeRingBufferUtilities
