@@ -95,15 +95,6 @@ struct Element : ElementFeatures...
     }
 };
 
-struct SizeTWrapper
-{
-    std::size_t value;
-
-    SizeTWrapper(const std::size_t i_value) : value(i_value)
-    {
-    }
-};
-
 template <typename Element, std::size_t Count>
 struct RingBufferStateBase
 {
@@ -223,7 +214,13 @@ template <typename BaseType>
 struct SingleProducerBehaviour : BaseType
 {
 private:
-    Details::CacheAlignedAndPaddedObject<SizeTWrapper> end{std::size_t(0)};
+    struct State
+    {
+        std::int64_t pushed_task_count{0};
+        std::size_t end{0};
+    };
+
+    Details::CacheAlignedAndPaddedObject<State> state{};
 
 public:
     using ElementType = typename BaseType::ElementType;
@@ -231,17 +228,16 @@ public:
     template <typename... Args>
     bool push(Args &&... args)
     {
-        if (BaseType::push_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
-        {
-            BaseType::push_task_count.fetch_add(1, std::memory_order_relaxed);
+        if (BaseType::push_task_count.load(std::memory_order_acquire) == state.pushed_task_count)
             return false;
-        }
+
+        state.pushed_task_count++;
 
         while (true)
         {
-            const std::size_t element_index = (end.value++) & BaseType::COUNT_MASK;
+            const std::size_t element_index = (state.end++) & BaseType::COUNT_MASK;
 
-            if (!BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed))
+            if (!BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire))
             {
                 BaseType::elements[element_index].value_ptr.store(new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...),
                                                                   std::memory_order_release);
@@ -257,24 +253,29 @@ template <typename BaseType>
 struct SingleConsumerBehaviour : BaseType
 {
 private:
-    Details::CacheAlignedAndPaddedObject<SizeTWrapper> begin{std::size_t(0)};
+    struct State
+    {
+        std::int64_t popped_task_count{0};
+        std::size_t begin{0};
+    };
+
+    Details::CacheAlignedAndPaddedObject<State> state{};
 
 public:
     using ElementType = typename BaseType::ElementType;
 
     OptionalType<ElementType> pop()
     {
-        if (BaseType::pop_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
-        {
-            BaseType::pop_task_count.fetch_add(1, std::memory_order_relaxed);
+        if (BaseType::pop_task_count.load(std::memory_order_acquire) == state.popped_task_count)
             return OptionalType<ElementType>{};
-        }
+
+        state.popped_task_count++;
 
         while (true)
         {
-            const std::size_t element_index = (begin.value++) & BaseType::COUNT_MASK;
+            const std::size_t element_index = (state.begin++) & BaseType::COUNT_MASK;
 
-            const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_relaxed);
+            const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire);
             if (value_ptr)
             {
                 OptionalType<ElementType> result{std::move(*value_ptr)};
