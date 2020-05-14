@@ -11,7 +11,7 @@
 template <std::size_t NumberOfPusherThreads, std::size_t NumberOfPopperThreads, typename RingType>
 std::pair<std::size_t, std::chrono::nanoseconds> run_benchmark(RingType &ring)
 {
-    constexpr std::size_t PushCount = 1024 * 1024;
+    static constexpr std::size_t PushCount = 1024 * 1024;
 
     std::vector<std::thread> pushers;
     std::vector<std::thread> poppers;
@@ -70,7 +70,7 @@ void run_benchmark_and_print_results(RingType &ring)
 
 int main()
 {
-    constexpr static std::size_t RingSize = 1024;
+    static constexpr std::size_t RingSize = 1024;
 
     {
         std::cout << "Running benchmark on MCMP queue." << std::endl;
