@@ -45,18 +45,22 @@ struct Element : ElementFeatures...
 template <typename Element, std::size_t Count>
 struct RingBufferStateBase
 {
-    //protected:
+protected:
     using ElementType = typename Element::ElementType;
 
     enum : std::size_t
     {
-        COUNT = Count,
         COUNT_MASK = Count - 1,
     };
 
     std::array<CacheAlignedAndPaddedObject<Element>, Count> elements{};
 
 public:
+    enum : std::size_t
+    {
+        COUNT = Count,
+    };
+
     static_assert(Count > 0 && !(COUNT_MASK & Count), "Count should be a power of two.");
 };
 
@@ -85,6 +89,7 @@ struct MultiProducerTypeTraits
     template <typename BaseType>
     struct Behavior : BaseType
     {
+    private:
         CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
 
     public:
@@ -126,6 +131,7 @@ struct MultiProducerTypeTraits
     template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
     struct SharedState : BaseType
     {
+    protected:
         CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(BaseType::COUNT)};
     };
 
@@ -185,6 +191,7 @@ struct MultiConsumerTypeTraits
     template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
     struct SharedState : BaseType
     {
+    protected:
         CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
     };
 
@@ -203,6 +210,7 @@ struct SingleProducerTypeTraits
         struct State
         {
             std::size_t pushed_task_count{0};
+            std::size_t local_push_task_count{BaseType::COUNT};
             std::size_t end{0};
         };
 
@@ -214,8 +222,13 @@ struct SingleProducerTypeTraits
         template <typename... Args>
         bool push(Args &&... args)
         {
-            if (BaseType::push_task_count.load(std::memory_order_acquire) == state.pushed_task_count)
-                return false;
+            if (state.local_push_task_count == state.pushed_task_count)
+            {
+                const auto stack_local_push_task_count = BaseType::push_task_count.load(std::memory_order_acquire);
+                if (state.local_push_task_count == stack_local_push_task_count)
+                    return false;
+                state.local_push_task_count = stack_local_push_task_count;
+            }
 
             state.pushed_task_count++;
 
@@ -238,6 +251,7 @@ struct SingleProducerTypeTraits
     template <typename BaseType>
     struct SharedState : BaseType
     {
+    protected:
         CacheAlignedAndPaddedObject<std::atomic_size_t> push_task_count{BaseType::COUNT};
     };
 
@@ -248,7 +262,6 @@ struct SingleProducerTypeTraits
 
 struct SingleConsumerTypeTraits
 {
-
     template <typename BaseType>
     struct Behavior : BaseType
     {
@@ -256,6 +269,7 @@ struct SingleConsumerTypeTraits
         struct State
         {
             std::size_t popped_task_count{0};
+            std::size_t local_pop_task_count{0};
             std::size_t begin{0};
         };
 
@@ -266,8 +280,13 @@ struct SingleConsumerTypeTraits
 
         OptionalType<ElementType> pop()
         {
-            if (BaseType::pop_task_count.load(std::memory_order_acquire) == state.popped_task_count)
-                return OptionalType<ElementType>{};
+            if (state.local_pop_task_count == state.popped_task_count)
+            {
+                const auto stack_local_pop_task_count = BaseType::pop_task_count.load(std::memory_order_acquire);
+                if (state.local_pop_task_count == stack_local_pop_task_count)
+                    return OptionalType<ElementType>{};
+                state.local_pop_task_count = stack_local_pop_task_count;
+            }
 
             state.popped_task_count++;
 
@@ -293,6 +312,7 @@ struct SingleConsumerTypeTraits
     template <typename BaseType>
     struct SharedState : BaseType
     {
+    protected:
         CacheAlignedAndPaddedObject<std::atomic_size_t> pop_task_count{std::size_t{0}};
     };
 
