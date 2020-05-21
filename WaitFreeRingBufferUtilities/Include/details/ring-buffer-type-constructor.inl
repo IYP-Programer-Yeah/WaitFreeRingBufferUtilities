@@ -30,13 +30,11 @@ template <typename T>
 struct Element
 {
     using ElementType = T;
-    CacheAlignedAndPaddedObject<std::atomic<std::uint_fast8_t>> state{ElementState::READY_FOR_PUSH};
+    std::atomic<std::uint_fast8_t> state{ElementState::READY_FOR_PUSH};
     T *value_ptr;
     typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
 
-    Element() : value_ptr(nullptr)
-    {
-    }
+    Element() = default;
 
     Element(const Element &) = delete;
     Element(Element &&) = delete;
@@ -46,7 +44,7 @@ struct Element
 
     ~Element()
     {
-        if (value_ptr)
+        if (state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
             value_ptr->~T();
     }
 };
@@ -79,6 +77,14 @@ template <std::size_t Count>
 struct CountInt64CompatibilityCheck
 {
     static_assert(Count <= static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max()), "Count exceeds the maximum. Count should fit in a std::int64_t.");
+};
+
+struct DummyAtomicSizeT
+{
+    std::size_t fetch_add(const std::size_t, const std::memory_order)
+    {
+        return 0;
+    }
 };
 } // namespace Private
 
@@ -113,14 +119,14 @@ struct MultiProducerTypeTraits
 
             while (true)
             {
-                const std::size_t local_end = end.fetch_add(1, std::memory_order_acquire);
-                const std::size_t element_index = local_end & BaseType::COUNT_MASK;
+                const std::size_t element_index = end.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+                auto &element = BaseType::elements[element_index];
 
-                auto expected_element_state = ElementState::READY_FOR_PUSH;
-                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].state, &expected_element_state, ElementState::IN_PROGRESS))
+                std::uint_fast8_t expected_element_state = ElementState::READY_FOR_PUSH;
+                if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
                 {
-                    BaseType::elements[element_index].value_ptr = new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...);
-                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_POP, std::memory_order_release);
+                    element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+                    element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
                     BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
                     return true;
                 }
@@ -157,16 +163,16 @@ struct MultiConsumerTypeTraits
 
             while (true)
             {
-                const std::size_t local_begin = begin.fetch_add(1, std::memory_order_acquire);
-                const std::size_t element_index = local_begin & BaseType::COUNT_MASK;
+                const std::size_t element_index = begin.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+                auto &element = BaseType::elements[element_index];
 
-                auto expected_element_state = ElementState::READY_FOR_POP;
-                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].state, &expected_element_state, ElementState::IN_PROGRESS))
+                std::uint_fast8_t expected_element_state = ElementState::READY_FOR_POP;
+                if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
                 {
-                    OptionalType<ElementType> result{std::move(*BaseType::elements[element_index].value_ptr)};
-                    BaseType::elements[element_index].value_ptr->~ElementType();
+                    OptionalType<ElementType> result{std::move(*element.value_ptr)};
+                    element.value_ptr->~ElementType();
 
-                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
+                    element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
                     BaseType::push_task_count.fetch_add(1, std::memory_order_release);
                     return result;
                 }
@@ -190,12 +196,10 @@ struct SingleProducerTypeTraits
     private:
         struct State
         {
-            std::size_t pushed_task_count{0};
-            std::size_t local_push_task_count{BaseType::COUNT};
             std::size_t end{0};
         };
 
-        CacheAlignedAndPaddedObject<State> state{};
+        CacheAlignedAndPaddedObject<State> state;
 
     public:
         using ElementType = typename BaseType::ElementType;
@@ -203,29 +207,20 @@ struct SingleProducerTypeTraits
         template <typename... Args>
         bool push(Args &&... args)
         {
-            if (state.local_push_task_count == state.pushed_task_count)
+            const std::size_t element_index = state.end & BaseType::COUNT_MASK;
+            auto &element = BaseType::elements[element_index];
+
+            if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
             {
-                const auto stack_local_push_task_count = BaseType::push_task_count.load(std::memory_order_acquire);
-                if (state.local_push_task_count == stack_local_push_task_count)
-                    return false;
-                state.local_push_task_count = stack_local_push_task_count;
+                element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+                element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
+                BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
+
+                state.end++;
+                return true;
             }
-
-            state.pushed_task_count++;
-
-            while (true)
-            {
-                const std::size_t element_index = (state.end++) & BaseType::COUNT_MASK;
-
-                if (BaseType::elements[element_index].state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
-                {
-                    BaseType::elements[element_index].value_ptr = new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...);
-                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_POP, std::memory_order_release);
-                    BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
-
-                    return true;
-                }
-            }
+            else
+                return false;
         }
     };
 
@@ -233,7 +228,7 @@ struct SingleProducerTypeTraits
     struct SharedState : BaseType
     {
     protected:
-        CacheAlignedAndPaddedObject<std::atomic_size_t> push_task_count{BaseType::COUNT};
+        Private::DummyAtomicSizeT push_task_count{};
     };
 };
 
@@ -245,43 +240,32 @@ struct SingleConsumerTypeTraits
     private:
         struct State
         {
-            std::size_t popped_task_count{0};
-            std::size_t local_pop_task_count{0};
             std::size_t begin{0};
         };
 
-        CacheAlignedAndPaddedObject<State> state{};
+        CacheAlignedAndPaddedObject<State> state;
 
     public:
         using ElementType = typename BaseType::ElementType;
 
         OptionalType<ElementType> pop()
         {
-            if (state.local_pop_task_count == state.popped_task_count)
+            const std::size_t element_index = state.begin & BaseType::COUNT_MASK;
+            auto &element = BaseType::elements[element_index];
+
+            if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
             {
-                const auto stack_local_pop_task_count = BaseType::pop_task_count.load(std::memory_order_acquire);
-                if (state.local_pop_task_count == stack_local_pop_task_count)
-                    return OptionalType<ElementType>{};
-                state.local_pop_task_count = stack_local_pop_task_count;
+                OptionalType<ElementType> result{std::move(*element.value_ptr)};
+                element.value_ptr->~ElementType();
+
+                element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
+                BaseType::push_task_count.fetch_add(1, std::memory_order_release);
+
+                state.begin++;
+                return result;
             }
-
-            state.popped_task_count++;
-
-            while (true)
-            {
-                const std::size_t element_index = (state.begin++) & BaseType::COUNT_MASK;
-
-                if (BaseType::elements[element_index].state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
-                {
-                    OptionalType<ElementType> result{std::move(*BaseType::elements[element_index].value_ptr)};
-                    BaseType::elements[element_index].value_ptr->~ElementType();
-
-                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
-                    BaseType::push_task_count.fetch_add(1, std::memory_order_release);
-
-                    return result;
-                }
-            }
+            else
+                return OptionalType<ElementType>{};
         }
     };
 
@@ -289,7 +273,7 @@ struct SingleConsumerTypeTraits
     struct SharedState : BaseType
     {
     protected:
-        CacheAlignedAndPaddedObject<std::atomic_size_t> pop_task_count{std::size_t{0}};
+        Private::DummyAtomicSizeT pop_task_count{};
     };
 };
 
