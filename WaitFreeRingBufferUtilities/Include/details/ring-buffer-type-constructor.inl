@@ -16,12 +16,22 @@ namespace WaitFreeRingBufferUtilities
 {
 namespace Details
 {
-template <typename T, typename... ElementFeatures>
-struct Element : ElementFeatures...
+namespace ElementState
+{
+enum : std::uint_fast8_t
+{
+    IN_PROGRESS,
+    READY_FOR_PUSH,
+    READY_FOR_POP,
+};
+} // namespace ElementState
+
+template <typename T>
+struct Element
 {
     using ElementType = T;
-
-    std::atomic<T *> value_ptr;
+    CacheAlignedAndPaddedObject<std::atomic<std::uint_fast8_t>> state{ElementState::READY_FOR_PUSH};
+    T *value_ptr;
     typename std::aligned_storage<sizeof(T), alignof(T)>::type storage;
 
     Element() : value_ptr(nullptr)
@@ -36,9 +46,8 @@ struct Element : ElementFeatures...
 
     ~Element()
     {
-        const auto local_value_ptr = value_ptr.load(std::memory_order_relaxed);
-        if (local_value_ptr)
-            local_value_ptr->~T();
+        if (value_ptr)
+            value_ptr->~T();
     }
 };
 
@@ -78,9 +87,7 @@ struct RingBufferTypeConstructor : ProducerTypeTraits::template Behavior<
                                        typename ConsumerTypeTraits::template Behavior<
                                            typename ProducerTypeTraits::template SharedState<
                                                typename ConsumerTypeTraits::template SharedState<
-                                                   RingBufferStateBase<
-                                                       Element<T, typename ProducerTypeTraits::ElementFeature, typename ConsumerTypeTraits::ElementFeature>,
-                                                       Count>>>>>
+                                                   RingBufferStateBase<Element<T>, Count>>>>>
 {
 };
 
@@ -108,20 +115,13 @@ struct MultiProducerTypeTraits
             {
                 const std::size_t local_end = end.fetch_add(1, std::memory_order_acquire);
                 const std::size_t element_index = local_end & BaseType::COUNT_MASK;
-                bool expected_is_pusher_processing = false;
-                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].is_pusher_processing, &expected_is_pusher_processing, true))
+
+                auto expected_element_state = ElementState::READY_FOR_PUSH;
+                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].state, &expected_element_state, ElementState::IN_PROGRESS))
                 {
-                    if (BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire))
-                    {
-                        BaseType::elements[element_index].is_pusher_processing.store(false, std::memory_order_relaxed);
-                        continue;
-                    }
-
-                    BaseType::elements[element_index].value_ptr.store(new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...),
-                                                                      std::memory_order_release);
+                    BaseType::elements[element_index].value_ptr = new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...);
+                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_POP, std::memory_order_release);
                     BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
-
-                    BaseType::elements[element_index].is_pusher_processing.store(false, std::memory_order_release);
                     return true;
                 }
             }
@@ -133,11 +133,6 @@ struct MultiProducerTypeTraits
     {
     protected:
         CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(BaseType::COUNT)};
-    };
-
-    struct ElementFeature
-    {
-        CacheAlignedAndPaddedObject<std::atomic_bool> is_pusher_processing{false};
     };
 };
 
@@ -163,25 +158,16 @@ struct MultiConsumerTypeTraits
             while (true)
             {
                 const std::size_t local_begin = begin.fetch_add(1, std::memory_order_acquire);
-
                 const std::size_t element_index = local_begin & BaseType::COUNT_MASK;
-                bool expected_is_popper_processing = false;
-                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].is_popper_processing, &expected_is_popper_processing, true))
+
+                auto expected_element_state = ElementState::READY_FOR_POP;
+                if (std::atomic_compare_exchange_strong(&BaseType::elements[element_index].state, &expected_element_state, ElementState::IN_PROGRESS))
                 {
-                    const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire);
-                    if (!value_ptr)
-                    {
-                        BaseType::elements[element_index].is_popper_processing.store(false, std::memory_order_relaxed);
-                        continue;
-                    }
+                    OptionalType<ElementType> result{std::move(*BaseType::elements[element_index].value_ptr)};
+                    BaseType::elements[element_index].value_ptr->~ElementType();
 
-                    OptionalType<ElementType> result{std::move(*value_ptr)};
-                    value_ptr->~ElementType();
-
-                    BaseType::elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
+                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
                     BaseType::push_task_count.fetch_add(1, std::memory_order_release);
-
-                    BaseType::elements[element_index].is_popper_processing.store(false, std::memory_order_release);
                     return result;
                 }
             }
@@ -193,11 +179,6 @@ struct MultiConsumerTypeTraits
     {
     protected:
         CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
-    };
-
-    struct ElementFeature
-    {
-        CacheAlignedAndPaddedObject<std::atomic_bool> is_popper_processing{false};
     };
 };
 
@@ -236,10 +217,10 @@ struct SingleProducerTypeTraits
             {
                 const std::size_t element_index = (state.end++) & BaseType::COUNT_MASK;
 
-                if (!BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire))
+                if (BaseType::elements[element_index].state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
                 {
-                    BaseType::elements[element_index].value_ptr.store(new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...),
-                                                                      std::memory_order_release);
+                    BaseType::elements[element_index].value_ptr = new (&BaseType::elements[element_index].storage) ElementType(std::forward<Args>(args)...);
+                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_POP, std::memory_order_release);
                     BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
 
                     return true;
@@ -253,10 +234,6 @@ struct SingleProducerTypeTraits
     {
     protected:
         CacheAlignedAndPaddedObject<std::atomic_size_t> push_task_count{BaseType::COUNT};
-    };
-
-    struct ElementFeature
-    {
     };
 };
 
@@ -294,13 +271,12 @@ struct SingleConsumerTypeTraits
             {
                 const std::size_t element_index = (state.begin++) & BaseType::COUNT_MASK;
 
-                const auto value_ptr = BaseType::elements[element_index].value_ptr.load(std::memory_order_acquire);
-                if (value_ptr)
+                if (BaseType::elements[element_index].state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
                 {
-                    OptionalType<ElementType> result{std::move(*value_ptr)};
-                    value_ptr->~ElementType();
+                    OptionalType<ElementType> result{std::move(*BaseType::elements[element_index].value_ptr)};
+                    BaseType::elements[element_index].value_ptr->~ElementType();
 
-                    BaseType::elements[element_index].value_ptr.store(nullptr, std::memory_order_release);
+                    BaseType::elements[element_index].state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
                     BaseType::push_task_count.fetch_add(1, std::memory_order_release);
 
                     return result;
@@ -314,10 +290,6 @@ struct SingleConsumerTypeTraits
     {
     protected:
         CacheAlignedAndPaddedObject<std::atomic_size_t> pop_task_count{std::size_t{0}};
-    };
-
-    struct ElementFeature
-    {
     };
 };
 
