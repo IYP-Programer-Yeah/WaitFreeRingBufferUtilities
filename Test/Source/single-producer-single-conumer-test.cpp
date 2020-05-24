@@ -79,7 +79,7 @@ TEST(SingleProducerSingleConsumerRingBufferTest, SingleProducerSingleConsumerPus
 {
     TestRingBufferType ring;
 
-    std::array<std::atomic_size_t, RingSize> pop_counts;
+    std::array<std::size_t, RingSize> pop_counts;
 
     for (auto &pop_count : pop_counts)
         pop_count = 0;
@@ -92,7 +92,7 @@ TEST(SingleProducerSingleConsumerRingBufferTest, SingleProducerSingleConsumerPus
                 if (popped_value)
                 {
                     if (popped_value.get() == i)
-                        pop_counts[i].fetch_add(1, std::memory_order_relaxed);
+                        pop_counts[i]++;
                     i++;
                 }
             }

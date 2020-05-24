@@ -10,7 +10,8 @@ namespace Iyp
 {
 namespace SingleProducerMultiConsumerRingBufferTest
 {
-constexpr static std::size_t RingSize = 4096;
+static constexpr std::size_t RingSize = 4096;
+static constexpr std::size_t NumberOfTries = 1024;
 using TestRingBufferType = WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
                                                                    WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
                                                                        WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
@@ -18,8 +19,6 @@ using TestRingBufferType = WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
 
 TEST(SingleProducerMultiConsumerRingBufferTest, EmptyAndFullRingTest)
 {
-    constexpr std::size_t NumberOfTries = 256;
-
     TestRingBufferType ring;
 
     EXPECT_FALSE(ring.pop());
@@ -40,8 +39,6 @@ TEST(SingleProducerMultiConsumerRingBufferTest, EmptyAndFullRingTest)
 
 TEST(SingleProducerMultiConsumerRingBufferTest, PushPopIntegrity)
 {
-    constexpr std::size_t NumberOfTries = 256;
-
     TestRingBufferType ring;
 
     for (std::size_t try_index = 0; try_index < NumberOfTries; try_index++)
@@ -64,8 +61,6 @@ TEST(SingleProducerMultiConsumerRingBufferTest, PushPopIntegrity)
 
 TEST(SingleProducerMultiConsumerRingBufferTest, OrderedPushPop)
 {
-    constexpr std::size_t NumberOfTries = 256;
-
     TestRingBufferType ring;
 
     for (std::size_t try_index = 0; try_index < NumberOfTries; try_index++)
@@ -83,8 +78,7 @@ TEST(SingleProducerMultiConsumerRingBufferTest, OrderedPushPop)
 
 TEST(SingleProducerMultiConsumerRingBufferTest, SingleProducerMultiConsumerPushPopIntergrity)
 {
-    constexpr std::size_t NumberOfTries = 256;
-    constexpr std::size_t NumberOfPopperThreads = 7;
+    static constexpr std::size_t NumberOfPopperThreads = 7;
 
     std::vector<std::thread> poppers;
     TestRingBufferType ring;
@@ -96,34 +90,24 @@ TEST(SingleProducerMultiConsumerRingBufferTest, SingleProducerMultiConsumerPushP
 
     for (std::size_t thread_number = 0; thread_number < NumberOfPopperThreads; thread_number++)
     {
-        poppers.emplace_back([&ring, &pop_counts, NumberOfTries, NumberOfPopperThreads]() {
+        poppers.emplace_back([&ring, &pop_counts]() {
             for (std::size_t try_index = 0; try_index < NumberOfTries; try_index++)
-            {
-                for (std::size_t i = 0; i < RingSize; i++)
+                for (std::size_t i = 0; i < RingSize;)
                 {
-                    while (true)
+                    const auto popped_value = ring.pop();
+                    if (popped_value)
                     {
-                        const auto popped_value = ring.pop();
-                        if (popped_value)
-                        {
-                            pop_counts[*popped_value].fetch_add(1, std::memory_order_relaxed);
-                            break;
-                        }
+                        pop_counts[*popped_value].fetch_add(1, std::memory_order_relaxed);
+                        i++;
                     }
                 }
-            }
         });
     }
 
     for (std::size_t try_index = 0; try_index < NumberOfTries * NumberOfPopperThreads; try_index++)
-    {
-        for (std::size_t i = 0; i < RingSize; i++)
-        {
-            while (!ring.push(i))
-            {
-            }
-        }
-    }
+        for (std::size_t i = 0; i < RingSize;)
+            if (ring.push(i))
+                i++;
 
     for (auto &popper : poppers)
         popper.join();
