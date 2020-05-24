@@ -22,4 +22,10 @@ script:
   - make
   - make install
   - ./Artifact/bin/Test
+  - echo "Building for coverage:"
+  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
+  - make
+  - make install
+  - ./Artifact/bin/Test
 after_success:
+  - bash <(curl -s https://codecov.io/bash)
