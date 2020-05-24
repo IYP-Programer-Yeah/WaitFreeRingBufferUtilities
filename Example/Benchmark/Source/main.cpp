@@ -19,10 +19,9 @@ std::pair<std::size_t, std::chrono::nanoseconds> run_benchmark(RingType &ring)
     for (std::size_t thread_number = 0; thread_number < NumberOfPopperThreads; thread_number++)
     {
         poppers.emplace_back([&ring]() {
-            for (std::size_t i = 0; i < PushCount * NumberOfPusherThreads; i++)
-                while (!ring.pop())
-                {
-                }
+            for (std::size_t i = 0; i < PushCount * NumberOfPusherThreads;)
+                if (ring.pop())
+                    i++;
         });
     }
 
@@ -35,10 +34,9 @@ std::pair<std::size_t, std::chrono::nanoseconds> run_benchmark(RingType &ring)
             {
             }
 
-            for (std::size_t i = 0; i < PushCount * NumberOfPopperThreads; i++)
-                while (!ring.push(i))
-                {
-                }
+            for (std::size_t i = 0; i < PushCount * NumberOfPopperThreads;)
+                if (ring.push(i))
+                    i++;
         });
     }
 
