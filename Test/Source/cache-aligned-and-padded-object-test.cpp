@@ -13,15 +13,15 @@ struct alignas(Alignment) SizableAlignableObject
 
 TEST(CacheAlignedAndPaddedObjectTest, UnalignedWithUndevisableSizeObject)
 {
-    constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT / 2;
-    constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE / 2;
+    static constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT / 2;
+    static constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE / 2;
 
     using UnalignedWithUndevisableSizeObjectType = SizableAlignableObject<Alignment, Size>;
     EXPECT_EQ(Alignment, alignof(UnalignedWithUndevisableSizeObjectType));
     EXPECT_EQ(Size, sizeof(UnalignedWithUndevisableSizeObjectType));
 
-    constexpr std::size_t ExpectedAlignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
-    constexpr std::size_t ExpectedSize = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE;
+    static constexpr std::size_t ExpectedAlignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
+    static constexpr std::size_t ExpectedSize = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE;
     using CacheAlignedAndPaddedObjectType = Iyp::WaitFreeRingBufferUtilities::Details::CacheAlignedAndPaddedObject<UnalignedWithUndevisableSizeObjectType>;
     EXPECT_EQ(ExpectedAlignment, alignof(CacheAlignedAndPaddedObjectType));
     EXPECT_EQ(ExpectedSize, sizeof(CacheAlignedAndPaddedObjectType));
@@ -29,15 +29,15 @@ TEST(CacheAlignedAndPaddedObjectTest, UnalignedWithUndevisableSizeObject)
 
 TEST(CacheAlignedAndPaddedObjectTest, UnalignedWithDevisableSizeObject)
 {
-    constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT / 2;
-    constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 3;
+    static constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT / 2;
+    static constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 3;
 
     using UnalignedWithUndevisableSizeObjectType = SizableAlignableObject<Alignment, Size>;
     EXPECT_EQ(Alignment, alignof(UnalignedWithUndevisableSizeObjectType));
     EXPECT_EQ(Size, sizeof(UnalignedWithUndevisableSizeObjectType));
 
-    constexpr std::size_t ExpectedAlignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
-    constexpr std::size_t ExpectedSize = Size;
+    static constexpr std::size_t ExpectedAlignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
+    static constexpr std::size_t ExpectedSize = Size;
     using CacheAlignedAndPaddedObjectType = Iyp::WaitFreeRingBufferUtilities::Details::CacheAlignedAndPaddedObject<UnalignedWithUndevisableSizeObjectType>;
     EXPECT_EQ(ExpectedAlignment, alignof(CacheAlignedAndPaddedObjectType));
     EXPECT_EQ(ExpectedSize, sizeof(CacheAlignedAndPaddedObjectType));
@@ -45,15 +45,15 @@ TEST(CacheAlignedAndPaddedObjectTest, UnalignedWithDevisableSizeObject)
 
 TEST(CacheAlignedAndPaddedObjectTest, DISABLED_AlignedWithUndevisableSizeObject)
 {
-    constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
-    constexpr std::size_t Size = (Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE / 2) * 3;
+    static constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
+    static constexpr std::size_t Size = (Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE / 2) * 3;
 
     using UnalignedWithUndevisableSizeObjectType = SizableAlignableObject<Alignment, Size>;
     EXPECT_EQ(Alignment, alignof(UnalignedWithUndevisableSizeObjectType));
     EXPECT_EQ(Size, sizeof(UnalignedWithUndevisableSizeObjectType));
 
-    constexpr std::size_t ExpectedAlignment = Alignment;
-    constexpr std::size_t ExpectedSize = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 2;
+    static constexpr std::size_t ExpectedAlignment = Alignment;
+    static constexpr std::size_t ExpectedSize = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 2;
     using CacheAlignedAndPaddedObjectType = Iyp::WaitFreeRingBufferUtilities::Details::CacheAlignedAndPaddedObject<UnalignedWithUndevisableSizeObjectType>;
     EXPECT_EQ(ExpectedAlignment, alignof(CacheAlignedAndPaddedObjectType));
     EXPECT_EQ(ExpectedSize, sizeof(CacheAlignedAndPaddedObjectType));
@@ -61,15 +61,15 @@ TEST(CacheAlignedAndPaddedObjectTest, DISABLED_AlignedWithUndevisableSizeObject)
 
 TEST(CacheAlignedAndPaddedObjectTest, AlignedWithDevisableSizeObject)
 {
-    constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
-    constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 3;
+    static constexpr std::size_t Alignment = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_ALIGNMENT;
+    static constexpr std::size_t Size = Iyp::WaitFreeRingBufferUtilities::Details::CACHE_LINE_SIZE * 3;
 
     using UnalignedWithUndevisableSizeObjectType = SizableAlignableObject<Alignment, Size>;
     EXPECT_EQ(Alignment, alignof(UnalignedWithUndevisableSizeObjectType));
     EXPECT_EQ(Size, sizeof(UnalignedWithUndevisableSizeObjectType));
 
-    constexpr std::size_t ExpectedAlignment = Alignment;
-    constexpr std::size_t ExpectedSize = Size;
+    static constexpr std::size_t ExpectedAlignment = Alignment;
+    static constexpr std::size_t ExpectedSize = Size;
     using CacheAlignedAndPaddedObjectType = Iyp::WaitFreeRingBufferUtilities::Details::CacheAlignedAndPaddedObject<UnalignedWithUndevisableSizeObjectType>;
     EXPECT_EQ(ExpectedAlignment, alignof(CacheAlignedAndPaddedObjectType));
     EXPECT_EQ(ExpectedSize, sizeof(CacheAlignedAndPaddedObjectType));
