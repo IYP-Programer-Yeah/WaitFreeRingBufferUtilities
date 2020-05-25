@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.com/IYP-Programer-Yeah/WaitFreeRingBufferUtilities.svg?branch=master)](https://travis-ci.com/IYP-Programer-Yeah/WaitFreeRingBufferUtilities)
 [![CodeFactor](https://www.codefactor.io/repository/github/iyp-programer-yeah/waitfreeringbufferutilities/badge)](https://www.codefactor.io/repository/github/iyp-programer-yeah/waitfreeringbufferutilities)
+[![codecov](https://codecov.io/gh/IYP-Programer-Yeah/WaitFreeRingBufferUtilities/branch/master/graph/badge.svg)](https://codecov.io/gh/IYP-Programer-Yeah/WaitFreeRingBufferUtilities)
 
 This is a header-only library that provides wait-free ring buffer utilities for C++ objects.
 
