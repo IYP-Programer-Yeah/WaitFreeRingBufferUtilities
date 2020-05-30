@@ -188,6 +188,82 @@ struct MultiConsumerTypeTraits
     };
 };
 
+struct MultiProducerForSingleConsumerTypeTraits
+{
+    template <typename BaseType>
+    struct Behavior : BaseType
+    {
+    private:
+        CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
+
+    public:
+        using ElementType = typename BaseType::ElementType;
+
+        template <typename... Args>
+        bool push(Args &&... args)
+        {
+            if (BaseType::push_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
+            {
+                BaseType::push_task_count.fetch_add(1, std::memory_order_relaxed);
+                return false;
+            }
+
+            const std::size_t element_index = end.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+            auto &element = BaseType::elements[element_index];
+
+            element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+            element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
+            BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
+            return true;
+        }
+    };
+
+    template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
+    struct SharedState : BaseType
+    {
+    protected:
+        CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(BaseType::COUNT)};
+    };
+};
+
+struct MultiConsumerForSingleProducerTypeTraits
+{
+    template <typename BaseType>
+    struct Behavior : BaseType
+    {
+    private:
+        CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
+
+    public:
+        using ElementType = typename BaseType::ElementType;
+
+        OptionalType<ElementType> pop()
+        {
+            if (BaseType::pop_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
+            {
+                BaseType::pop_task_count.fetch_add(1, std::memory_order_relaxed);
+                return OptionalType<ElementType>{};
+            }
+
+            const std::size_t element_index = begin.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+            auto &element = BaseType::elements[element_index];
+
+            OptionalType<ElementType> result{std::move(*element.value_ptr)};
+            element.value_ptr->~ElementType();
+
+            element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
+            return result;
+        }
+    };
+
+    template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
+    struct SharedState : BaseType
+    {
+    protected:
+        CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
+    };
+};
+
 struct SingleProducerTypeTraits
 {
     template <typename BaseType>
