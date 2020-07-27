@@ -43,3 +43,6 @@
 [submodule "Dependencies/boost/integer"]
 	path = Dependencies/boost/integer
 	url = https://github.com/boostorg/integer
+[submodule "Dependencies/benchmark"]
+	path = Dependencies/benchmark
+	url = https://github.com/google/benchmark
