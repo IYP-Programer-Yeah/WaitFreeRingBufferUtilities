@@ -1,2 +1,2 @@
-add_subdirectory(Benchmark)
+add_subdirectory(RingBenchmark)
 add_subdirectory(RteRingComparison)
