@@ -13,6 +13,7 @@ matrix:
         - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
 
 script:
+  - sudo apt upgrade cmake
   - mkdir Projects/CMake/Build -p
   - cd Projects/CMake/Build
   - cmake --version
