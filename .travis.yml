@@ -1,16 +1,22 @@
 matrix:
   include:
     - os: linux
-
+      dit: bionic
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'kalakris-cmake']
-          packages: ['gcc-5', 'g++-5', 'cmake']
+          sources:
+            - ubuntu-toolchain-r-test
+            - kalakris-cmake
+          packages:
+            - gcc-5
+            - g++-5
+            - cmake
       env:
         - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
 
+    - os: windows
+
 script:
-  - apt upgrade cmake
   - mkdir Projects/CMake/Build -p
   - cd Projects/CMake/Build
   - cmake --version
