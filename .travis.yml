@@ -1,22 +1,20 @@
-language: cpp
-compiler:
-  - gcc-5
-os:
-  - linux
+matrix:
+  include:
+    - os: linux
 
-addons:
-  apt:
-    sources:
-      - ubuntu-toolchain-r-test
-    packages:
-      - gcc-5
-      - g++-5
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-5
+            - g++-5
+      env:
+        - MATRIX_EVAL="CC=gcc-5 && CXX=g++-5"
 
 script:
   - mkdir Projects/CMake/Build -p
   - cd Projects/CMake/Build
-  - export CC=gcc-5
-  - export CXX=g++-5
   - cmake --version
   - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact
   - make
@@ -24,8 +22,8 @@ script:
   - ./Artifact/bin/Test
   - echo "Building for coverage:"
   - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
-  - make
-  - make install
+  - cmake --build .
+  - cmake --install .
   - ./Artifact/bin/Test
 after_success:
   - bash <(curl -s https://codecov.io/bash)
