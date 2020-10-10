@@ -17,9 +17,9 @@ script:
   - mkdir Projects/CMake/Build -p
   - cd Projects/CMake/Build
   - cmake --version
-  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact
-  - make
-  - make install
+  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
+  - cmake --build .
+  - cmake --install .
   - ./Artifact/bin/Test
   - echo "Building for coverage:"
   - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
