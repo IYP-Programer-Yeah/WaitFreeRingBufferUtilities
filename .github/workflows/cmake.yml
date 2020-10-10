@@ -47,5 +47,5 @@ jobs:
     - name: Coverage
       working-directory: ${{runner.workspace}}/build
       shell: bash
-      if: ${{ contains(env.BUILD_TYPE, Debug) }}
+      if: contains(${{env.BUILD_TYPE}}, Debug)
       run: bash <(curl -s https://codecov.io/bash)
