@@ -1,5 +1,7 @@
 cmake_minimum_required (VERSION 3.5)
 
+project(WaitFreeRingBufferUtilitiesPackage)
+
 set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 set(CMAKE_CXX_STANDARD 11)
