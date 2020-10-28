@@ -1,4 +1,2 @@
-set(BENCHMARK_ENABLE_TESTING OFF)
-set(BENCHMARK_ENABLE_GTEST_TESTS OFF)
-set(GOOGLETEST_PATH ${REPO_ROOT}/Dependencies/googletest/)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE "Disable Google Benchmark tests.")
 add_subdirectory(${REPO_ROOT}/Dependencies/benchmark/ googlebench/)
