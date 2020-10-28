@@ -17,7 +17,7 @@ script:
   - mkdir Projects/CMake/Build -p
   - cd Projects/CMake/Build
   - cmake --version
-  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
+  - cmake .. -DCMAKE_INSTALL_PREFIX:PATH=./Artifact -DCMAKE_BUILD_TYPE=Debug -DBENCHMARK_ENABLE_TESTING=off -DCMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage"
   - cmake --build .
   - cmake --install .
   - ./Artifact/bin/Test
