@@ -28,9 +28,13 @@ template <typename RingType>
 struct RingFixture : benchmark::Fixture
 {
     RingType ring;
+    std::size_t value_to_push;
 
     void SetUp(const ::benchmark::State &state)
     {
+
+        std::srand(std::time(0));
+        value_to_push = std::rand();
         if (state.thread_index == 0)
         {
             for (std::size_t i = 0; i < RingSize / 2; i++)
@@ -53,7 +57,7 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, scsp_multithreaded_benchmark, ScspRingB
 {
     if (state.thread_index == 0)
         for (auto _ : state)
-            ring.push(0);
+            ring.push(value_to_push);
     else
         for (auto _ : state)
             ring.pop();
@@ -65,7 +69,7 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, mcsp_multithreaded_benchmark, McspRingB
 {
     if (state.thread_index == 0)
         for (auto _ : state)
-            ring.push(0);
+            ring.push(value_to_push);
     else
         for (auto _ : state)
             ring.pop();
@@ -80,7 +84,7 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, scmp_multithreaded_benchmark, ScmpRingB
             ring.pop();
     else
         for (auto _ : state)
-            ring.push();
+            ring.push(value_to_push);
 }
 BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(8);
 
@@ -89,7 +93,7 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, mcmp_multithreaded_benchmark, McmpRingB
 {
     if (state.thread_index < (state.threads / 2))
         for (auto _ : state)
-            ring.push(0);
+            ring.push(value_to_push);
     else
         for (auto _ : state)
             ring.pop();
