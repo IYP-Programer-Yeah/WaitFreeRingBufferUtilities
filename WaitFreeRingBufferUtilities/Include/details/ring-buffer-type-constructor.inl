@@ -111,7 +111,7 @@ struct MultiProducerTypeTraits
         template <typename... Args>
         bool push(Args &&... args)
         {
-            if (BaseType::push_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
+            if (BaseType::push_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
             {
                 BaseType::push_task_count.fetch_add(1, std::memory_order_relaxed);
                 return false;
@@ -119,15 +119,17 @@ struct MultiProducerTypeTraits
 
             while (true)
             {
-                const std::size_t element_index = end.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+                const std::size_t element_index = end.fetch_add(1, std::memory_order_relaxed) & BaseType::COUNT_MASK;
                 auto &element = BaseType::elements[element_index];
 
                 std::uint_fast8_t expected_element_state = ElementState::READY_FOR_PUSH;
                 if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
                 {
                     element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+
                     element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
                     BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
+
                     return true;
                 }
             }
@@ -155,7 +157,7 @@ struct MultiConsumerTypeTraits
 
         OptionalType<ElementType> pop()
         {
-            if (BaseType::pop_task_count.fetch_sub(1, std::memory_order_acquire) <= std::int64_t(0))
+            if (BaseType::pop_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
             {
                 BaseType::pop_task_count.fetch_add(1, std::memory_order_relaxed);
                 return OptionalType<ElementType>{};
@@ -163,7 +165,7 @@ struct MultiConsumerTypeTraits
 
             while (true)
             {
-                const std::size_t element_index = begin.fetch_add(1, std::memory_order_acquire) & BaseType::COUNT_MASK;
+                const std::size_t element_index = begin.fetch_add(1, std::memory_order_relaxed) & BaseType::COUNT_MASK;
                 auto &element = BaseType::elements[element_index];
 
                 std::uint_fast8_t expected_element_state = ElementState::READY_FOR_POP;
@@ -207,16 +209,16 @@ struct SingleProducerTypeTraits
         template <typename... Args>
         bool push(Args &&... args)
         {
-            const std::size_t element_index = state.end & BaseType::COUNT_MASK;
-            auto &element = BaseType::elements[element_index];
+            auto &element = BaseType::elements[state.end];
 
             if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
             {
                 element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+
                 element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
                 BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
 
-                state.end++;
+                state.end = (state.end + 1)  & BaseType::COUNT_MASK;
                 return true;
             }
             else
@@ -250,8 +252,7 @@ struct SingleConsumerTypeTraits
 
         OptionalType<ElementType> pop()
         {
-            const std::size_t element_index = state.begin & BaseType::COUNT_MASK;
-            auto &element = BaseType::elements[element_index];
+            auto &element = BaseType::elements[state.begin];
 
             if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
             {
@@ -261,7 +262,7 @@ struct SingleConsumerTypeTraits
                 element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
                 BaseType::push_task_count.fetch_add(1, std::memory_order_release);
 
-                state.begin++;
+                state.begin = (state.begin + 1) & BaseType::COUNT_MASK;
                 return result;
             }
             else
