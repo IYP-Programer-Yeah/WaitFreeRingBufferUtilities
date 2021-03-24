@@ -2,6 +2,10 @@
 
 #include <benchmark/benchmark.h>
 
+#include <cstddef>
+#include <cstdlib>
+#include <ctime>
+
 static constexpr std::size_t RingSize = 1024;
 
 using McmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
@@ -75,6 +79,12 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, mcsp_multithreaded_benchmark, McspRingB
             ring.pop();
 }
 BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(8);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(7);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(6);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(5);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(4);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(3);
+BENCHMARK_REGISTER_F(RingFixture, mcsp_multithreaded_benchmark)->Threads(2);
 
 BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, scmp_multithreaded_benchmark, ScmpRingBufferType)
 (benchmark::State &state)
@@ -87,6 +97,12 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, scmp_multithreaded_benchmark, ScmpRingB
             ring.push(value_to_push);
 }
 BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(8);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(7);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(6);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(5);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(4);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(3);
+BENCHMARK_REGISTER_F(RingFixture, scmp_multithreaded_benchmark)->Threads(2);
 
 BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, mcmp_multithreaded_benchmark, McmpRingBufferType)
 (benchmark::State &state)
@@ -99,3 +115,6 @@ BENCHMARK_TEMPLATE_DEFINE_F(RingFixture, mcmp_multithreaded_benchmark, McmpRingB
             ring.pop();
 }
 BENCHMARK_REGISTER_F(RingFixture, mcmp_multithreaded_benchmark)->Threads(8);
+BENCHMARK_REGISTER_F(RingFixture, mcmp_multithreaded_benchmark)->Threads(6);
+BENCHMARK_REGISTER_F(RingFixture, mcmp_multithreaded_benchmark)->Threads(4);
+BENCHMARK_REGISTER_F(RingFixture, mcmp_multithreaded_benchmark)->Threads(2);
