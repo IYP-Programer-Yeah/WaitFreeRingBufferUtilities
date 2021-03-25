@@ -46,3 +46,6 @@
 [submodule "Dependencies/benchmark"]
 	path = Dependencies/benchmark
 	url = https://github.com/google/benchmark
+[submodule "Dependencies/dpdk"]
+	path = Dependencies/dpdk
+	url = https://github.com/DPDK/dpdk/
