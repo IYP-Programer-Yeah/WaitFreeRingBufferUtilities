@@ -1,5 +1,11 @@
 project(RteRingComparison CXX)
 
+if (TARGET rte_ring)
+  message("RTE Ring is a target")
+else()
+  message("RTE Ring is not a target")
+endif()
+
 file(GLOB_RECURSE CPP_FILES ${REPO_ROOT}/Example/${PROJECT_NAME}/Source/*.cpp)
 add_executable(${PROJECT_NAME} ${CPP_FILES})
 find_package(Threads REQUIRED)
