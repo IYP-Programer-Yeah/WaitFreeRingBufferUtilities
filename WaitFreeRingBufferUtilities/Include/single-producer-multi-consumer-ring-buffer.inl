@@ -14,7 +14,7 @@ template <typename T, std::size_t Count>
 struct RingBuffer<T,
                   AccessRequirements::MULTI_CONSUMER | AccessRequirements::SINGLE_PRODUCER,
                   Count> : Details::RingBufferTypeConstructor<Details::SingleProducerTypeTraits,
-                                                              Details::MultiConsumerTypeTraits,
+                                                              Details::MultiConsumerForSingleProducerTypeTraits,
                                                               T, Count>
 {
 };
