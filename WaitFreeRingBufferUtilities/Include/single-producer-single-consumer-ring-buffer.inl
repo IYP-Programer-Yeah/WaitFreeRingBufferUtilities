@@ -12,8 +12,8 @@ namespace WaitFreeRingBufferUtilities
 template <typename T, std::size_t Count>
 struct RingBuffer<T,
                   AccessRequirements::SINGLE_CONSUMER | AccessRequirements::SINGLE_PRODUCER,
-                  Count> : Details::RingBufferTypeConstructor<Details::SingleProducerTypeTraits,
-                                                              Details::SingleConsumerTypeTraits,
+                  Count> : Details::RingBufferTypeConstructor<Details::SingleProducer,
+                                                              Details::SingleConsumer,
                                                               T, Count>
 {
 };

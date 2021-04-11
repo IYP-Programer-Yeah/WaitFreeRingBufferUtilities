@@ -49,233 +49,186 @@ struct Element
     }
 };
 
-template <typename Element, std::size_t Count>
-struct RingBufferStateBase
+template <template <typename, std::size_t> class Producer,
+          template <typename, std::size_t> class Consumer,
+          typename ElementType, std::size_t Count>
+struct RingBufferTypeConstructor : Producer<ElementType, Count>, Consumer<ElementType, Count>
 {
-protected:
-    using ElementType = typename Element::ElementType;
-
     enum : std::size_t
     {
         COUNT_MASK = Count - 1,
     };
+    static_assert(Count && !(COUNT_MASK & Count), "Count should be a power of two.");
 
-    std::array<CacheAlignedAndPaddedObject<Element>, Count> elements{};
+    std::array<CacheAlignedAndPaddedObject<Element<ElementType>>, Count> elements{};
 
-public:
-    enum : std::size_t
+    template <typename... Args>
+    bool push(Args &&...args)
     {
-        COUNT = Count,
-    };
+        return this->push_impl(*this, std::forward<Args>(args)...);
+    }
 
-    static_assert(Count > 0 && !(COUNT_MASK & Count), "Count should be a power of two.");
-};
-
-namespace Private
-{
-template <std::size_t Count>
-struct CountInt64CompatibilityCheck
-{
-    static_assert(Count <= static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max()), "Count exceeds the maximum. Count should fit in a std::int64_t.");
-};
-
-struct DummyAtomicSizeT
-{
-    std::size_t fetch_add(const std::size_t, const std::memory_order)
+    OptionalType<ElementType> pop()
     {
-        return 0;
+        return this->pop_impl(*this);
     }
 };
-} // namespace Private
 
-template <typename ProducerTypeTraits, typename ConsumerTypeTraits, typename T, std::size_t Count>
-struct RingBufferTypeConstructor : ProducerTypeTraits::template Behavior<
-                                       typename ConsumerTypeTraits::template Behavior<
-                                           typename ProducerTypeTraits::template SharedState<
-                                               typename ConsumerTypeTraits::template SharedState<
-                                                   RingBufferStateBase<Element<T>, Count>>>>>
+template <typename ElementType, std::size_t Count>
+struct MultiProducer
 {
-};
+private:
+    CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
+    CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(Count)};
+    static_assert(Count <= static_cast<std::size_t>(std::numeric_limits<std::int64_t>::max()),
+                  "Count exceeds the maximum. Count should fit in a std::int64_t.");
 
-struct MultiProducerTypeTraits
-{
-    template <typename BaseType>
-    struct Behavior : BaseType
+public:
+    void notify_pop()
     {
-    private:
-        CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
+        push_task_count.fetch_add(1, std::memory_order_release);
+    }
 
-    public:
-        using ElementType = typename BaseType::ElementType;
-
-        template <typename... Args>
-        bool push(Args &&... args)
+    template <typename Ring, typename... Args>
+    bool push_impl(Ring &ring, Args &&...args)
+    {
+        if (push_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
         {
-            if (BaseType::push_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
-            {
-                BaseType::push_task_count.fetch_add(1, std::memory_order_relaxed);
-                return false;
-            }
-
-            while (true)
-            {
-                const std::size_t element_index = end.fetch_add(1, std::memory_order_relaxed) & BaseType::COUNT_MASK;
-                auto &element = BaseType::elements[element_index];
-
-                std::uint_fast8_t expected_element_state = ElementState::READY_FOR_PUSH;
-                if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
-                {
-                    element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
-
-                    element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
-                    BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
-
-                    return true;
-                }
-            }
+            push_task_count.fetch_add(1, std::memory_order_relaxed);
+            return false;
         }
-    };
 
-    template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
-    struct SharedState : BaseType
-    {
-    protected:
-        CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(BaseType::COUNT)};
-    };
-};
-
-struct MultiConsumerTypeTraits
-{
-    template <typename BaseType>
-    struct Behavior : BaseType
-    {
-    private:
-        CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
-
-    public:
-        using ElementType = typename BaseType::ElementType;
-
-        OptionalType<ElementType> pop()
+        while (true)
         {
-            if (BaseType::pop_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
-            {
-                BaseType::pop_task_count.fetch_add(1, std::memory_order_relaxed);
-                return OptionalType<ElementType>{};
-            }
+            const std::size_t element_index = end.fetch_add(1, std::memory_order_relaxed) & Ring::COUNT_MASK;
+            auto &element = ring.elements[element_index];
 
-            while (true)
-            {
-                const std::size_t element_index = begin.fetch_add(1, std::memory_order_relaxed) & BaseType::COUNT_MASK;
-                auto &element = BaseType::elements[element_index];
-
-                std::uint_fast8_t expected_element_state = ElementState::READY_FOR_POP;
-                if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
-                {
-                    OptionalType<ElementType> result{std::move(*element.value_ptr)};
-                    element.value_ptr->~ElementType();
-
-                    element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
-                    BaseType::push_task_count.fetch_add(1, std::memory_order_release);
-                    return result;
-                }
-            }
-        }
-    };
-
-    template <typename BaseType, typename = Private::CountInt64CompatibilityCheck<BaseType::COUNT>>
-    struct SharedState : BaseType
-    {
-    protected:
-        CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
-    };
-};
-
-struct SingleProducerTypeTraits
-{
-    template <typename BaseType>
-    struct Behavior : BaseType
-    {
-    private:
-        struct State
-        {
-            std::size_t end{0};
-        };
-
-        CacheAlignedAndPaddedObject<State> state;
-
-    public:
-        using ElementType = typename BaseType::ElementType;
-
-        template <typename... Args>
-        bool push(Args &&... args)
-        {
-            auto &element = BaseType::elements[state.end];
-
-            if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
+            std::uint_fast8_t expected_element_state = ElementState::READY_FOR_PUSH;
+            if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
             {
                 element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
 
                 element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
-                BaseType::pop_task_count.fetch_add(1, std::memory_order_release);
+                ring.notify_push();
 
-                state.end = (state.end + 1)  & BaseType::COUNT_MASK;
                 return true;
             }
-            else
-                return false;
         }
-    };
-
-    template <typename BaseType>
-    struct SharedState : BaseType
-    {
-    protected:
-        Private::DummyAtomicSizeT push_task_count{};
-    };
+    }
 };
 
-struct SingleConsumerTypeTraits
+template <typename ElementType, std::size_t Count>
+struct MultiConsumer
 {
-    template <typename BaseType>
-    struct Behavior : BaseType
+private:
+    CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
+    CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
+
+public:
+    void notify_push()
     {
-    private:
-        struct State
+        pop_task_count.fetch_add(1, std::memory_order_release);
+    }
+
+    template <typename Ring>
+    OptionalType<ElementType> pop_impl(Ring &ring)
+    {
+        if (pop_task_count.fetch_sub(1, std::memory_order_acq_rel) <= std::int64_t(0))
         {
-            std::size_t begin{0};
-        };
+            pop_task_count.fetch_add(1, std::memory_order_relaxed);
+            return OptionalType<ElementType>{};
+        }
 
-        CacheAlignedAndPaddedObject<State> state;
-
-    public:
-        using ElementType = typename BaseType::ElementType;
-
-        OptionalType<ElementType> pop()
+        while (true)
         {
-            auto &element = BaseType::elements[state.begin];
+            const std::size_t element_index = begin.fetch_add(1, std::memory_order_relaxed) & Ring::COUNT_MASK;
+            auto &element = ring.elements[element_index];
 
-            if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
+            std::uint_fast8_t expected_element_state = ElementState::READY_FOR_POP;
+            if (std::atomic_compare_exchange_strong(&element.state, &expected_element_state, std::uint_fast8_t(ElementState::IN_PROGRESS)))
             {
                 OptionalType<ElementType> result{std::move(*element.value_ptr)};
                 element.value_ptr->~ElementType();
 
                 element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
-                BaseType::push_task_count.fetch_add(1, std::memory_order_release);
-
-                state.begin = (state.begin + 1) & BaseType::COUNT_MASK;
+                ring.notify_pop();
                 return result;
             }
-            else
-                return OptionalType<ElementType>{};
         }
+    }
+};
+
+template <typename ElementType, std::size_t Count>
+struct SingleProducer
+{
+private:
+    struct State
+    {
+        std::size_t end{0};
     };
 
-    template <typename BaseType>
-    struct SharedState : BaseType
+    CacheAlignedAndPaddedObject<State> state;
+
+public:
+    void notify_pop() const
     {
-    protected:
-        Private::DummyAtomicSizeT pop_task_count{};
+    }
+
+    template <typename Ring, typename... Args>
+    bool push_impl(Ring &ring, Args &&...args)
+    {
+        auto &element = ring.elements[state.end];
+
+        if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_PUSH)
+        {
+            element.value_ptr = new (&element.storage) ElementType(std::forward<Args>(args)...);
+
+            element.state.store(ElementState::READY_FOR_POP, std::memory_order_release);
+            ring.notify_push();
+
+            state.end = (state.end + 1) & Ring::COUNT_MASK;
+            return true;
+        }
+        else
+            return false;
+    }
+};
+
+template <typename ElementType, std::size_t Count>
+struct SingleConsumer
+{
+private:
+    struct State
+    {
+        std::size_t begin{0};
     };
+
+    CacheAlignedAndPaddedObject<State> state;
+
+public:
+    void notify_push() const
+    {
+    }
+
+    template <typename Ring>
+    OptionalType<ElementType> pop_impl(Ring &ring)
+    {
+        auto &element = ring.elements[state.begin];
+
+        if (element.state.load(std::memory_order_acquire) == ElementState::READY_FOR_POP)
+        {
+            OptionalType<ElementType> result{std::move(*element.value_ptr)};
+            element.value_ptr->~ElementType();
+
+            element.state.store(ElementState::READY_FOR_PUSH, std::memory_order_release);
+            ring.notify_pop();
+
+            state.begin = (state.begin + 1) & Ring::COUNT_MASK;
+            return result;
+        }
+        else
+            return OptionalType<ElementType>{};
+    }
 };
 
 } // namespace Details
