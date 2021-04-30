@@ -11,9 +11,9 @@ namespace SingleProducerSingleConsumerRingBufferTest
 {
 static constexpr std::size_t RingSize = 4096;
 static constexpr std::size_t NumberOfTries = 4096;
-using TestRingBufferType = WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
-                                                                   WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_CONSUMER |
-                                                                       WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
+using TestRingBufferType = WaitFreeRingBufferUtilities::RingBuffer<WaitFreeRingBufferUtilities::SingleProducer,
+                                                                   WaitFreeRingBufferUtilities::SingleConsumer,
+                                                                   std::size_t,
                                                                    RingSize>;
 
 TEST(SingleProducerSingleConsumerRingBufferTest, EmptyAndFullRingTest)

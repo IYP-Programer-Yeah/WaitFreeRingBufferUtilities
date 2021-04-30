@@ -1,7 +1,8 @@
 #pragma once
 
+#include "Iyp/WaitFreeRingBufferUtilities/ring-buffer.inl"
 #include "Iyp/WaitFreeRingBufferUtilities/optional-type.inl"
-#include "Iyp/WaitFreeRingBufferUtilities/multi-producer-multi-consumer-ring-buffer.inl"
-#include "Iyp/WaitFreeRingBufferUtilities/single-producer-multi-consumer-ring-buffer.inl"
-#include "Iyp/WaitFreeRingBufferUtilities/multi-producer-single-consumer-ring-buffer.inl"
-#include "Iyp/WaitFreeRingBufferUtilities/single-producer-single-consumer-ring-buffer.inl"
+#include "Iyp/WaitFreeRingBufferUtilities/multi-producer.inl"
+#include "Iyp/WaitFreeRingBufferUtilities/multi-consumer.inl"
+#include "Iyp/WaitFreeRingBufferUtilities/single-producer.inl"
+#include "Iyp/WaitFreeRingBufferUtilities/single-consumer.inl"
