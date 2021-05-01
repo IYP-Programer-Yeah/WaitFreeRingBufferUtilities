@@ -12,7 +12,7 @@ namespace Iyp
 namespace WaitFreeRingBufferUtilities
 {
 template <typename ElementType, std::size_t Count>
-struct SingleProducer
+class SingleProducer
 {
     struct State
     {
