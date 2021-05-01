@@ -14,7 +14,6 @@ namespace WaitFreeRingBufferUtilities
 template <typename ElementType, std::size_t Count>
 struct SingleProducer
 {
-private:
     struct State
     {
         std::size_t end{0};
