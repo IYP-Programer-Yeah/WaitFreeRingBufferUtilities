@@ -15,7 +15,6 @@ namespace WaitFreeRingBufferUtilities
 template <typename ElementType, std::size_t Count>
 class SingleConsumer
 {
-private:
     struct State
     {
         std::size_t begin{0};
