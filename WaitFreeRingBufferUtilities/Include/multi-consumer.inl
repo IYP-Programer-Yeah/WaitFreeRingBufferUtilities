@@ -13,7 +13,7 @@ namespace Iyp
 namespace WaitFreeRingBufferUtilities
 {
 template <typename ElementType, std::size_t Count>
-struct MultiConsumer
+class MultiConsumer
 {
 private:
     Details::CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
