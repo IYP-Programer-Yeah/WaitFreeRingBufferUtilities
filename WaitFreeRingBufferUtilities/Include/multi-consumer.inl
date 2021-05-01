@@ -15,7 +15,6 @@ namespace WaitFreeRingBufferUtilities
 template <typename ElementType, std::size_t Count>
 class MultiConsumer
 {
-private:
     Details::CacheAlignedAndPaddedObject<std::atomic_size_t> begin{std::size_t(0)};
     Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> pop_task_count{std::int64_t{0}};
 
