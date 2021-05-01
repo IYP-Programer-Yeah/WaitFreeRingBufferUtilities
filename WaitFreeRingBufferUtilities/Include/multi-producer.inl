@@ -15,7 +15,7 @@ namespace WaitFreeRingBufferUtilities
 {
 
 template <typename ElementType, std::size_t Count>
-struct MultiProducer
+class MultiProducer
 {
     Details::CacheAlignedAndPaddedObject<std::atomic_size_t> end{std::size_t(0)};
     Details::CacheAlignedAndPaddedObject<std::atomic<std::int64_t>> push_task_count{static_cast<std::int64_t>(Count)};
