@@ -8,24 +8,24 @@
 
 static constexpr std::size_t RingSize = 1024;
 
-using McmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
-                                                                        Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
-                                                                            Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_PRODUCER,
+using McmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::MultiProducer,
+                                                                        Iyp::WaitFreeRingBufferUtilities::MultiConsumer,
+                                                                        std::size_t,
                                                                         RingSize>;
 
-using ScmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
-                                                                        Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_CONSUMER |
-                                                                            Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_PRODUCER,
+using ScmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::MultiProducer,
+                                                                        Iyp::WaitFreeRingBufferUtilities::SingleConsumer,
+                                                                        std::size_t,
                                                                         RingSize>;
 
-using McspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
-                                                                        Iyp::WaitFreeRingBufferUtilities::AccessRequirements::MULTI_CONSUMER |
-                                                                            Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
+using McspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::SingleProducer,
+                                                                        Iyp::WaitFreeRingBufferUtilities::MultiConsumer,
+                                                                        std::size_t,
                                                                         RingSize>;
 
-using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<std::size_t,
-                                                                        Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_CONSUMER |
-                                                                            Iyp::WaitFreeRingBufferUtilities::AccessRequirements::SINGLE_PRODUCER,
+using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::SingleProducer,
+                                                                        Iyp::WaitFreeRingBufferUtilities::SingleConsumer,
+                                                                        std::size_t,
                                                                         RingSize>;
 
 template <typename RingType>
@@ -36,7 +36,6 @@ struct RingFixture : benchmark::Fixture
 
     void SetUp(const ::benchmark::State &state)
     {
-
         std::srand(std::time(0));
         value_to_push = std::rand();
         if (state.thread_index == 0)
