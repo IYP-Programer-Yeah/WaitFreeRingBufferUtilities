@@ -33,16 +33,6 @@ using ScspRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::Wai
                                                                         std::size_t,
                                                                         RingSize>;
 
-using FifoMcmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::FifoMultiProducer,
-                                                                            Iyp::WaitFreeRingBufferUtilities::MultiConsumer,
-                                                                            std::size_t,
-                                                                            RingSize>;
-
-using FifoScmpRingBufferType = Iyp::WaitFreeRingBufferUtilities::RingBuffer<Iyp::WaitFreeRingBufferUtilities::FifoMultiProducer,
-                                                                            Iyp::WaitFreeRingBufferUtilities::SingleConsumer,
-                                                                            std::size_t,
-                                                                            RingSize>;
-
 enum class ThreadType
 {
     PRODUCER,
@@ -100,8 +90,7 @@ public:
           signal(ENDED_ITERATION),
           should_stop(false),
           number_of_processed_elements_per_iteration(i_number_of_processed_elements_per_iteration),
-          thread([this, thread_type]()
-                 { thread_type == ThreadType::PRODUCER ? producer_thread() : consumer_thread(); })
+          thread([this, thread_type]() { thread_type == ThreadType::PRODUCER ? producer_thread() : consumer_thread(); })
     {
     }
 
@@ -158,6 +147,3 @@ BENCHMARK_TEMPLATE(throughput_benchmark, ScmpRingBufferType)->ArgsProduct({{1, 2
 BENCHMARK_TEMPLATE(throughput_benchmark, McspRingBufferType)->ArgsProduct({{1}, {1, 2, 3, 4, 5, 6, 7}})->ArgNames({"Producer Count", "Consumer Count"})->Complexity();
 BENCHMARK_TEMPLATE(throughput_benchmark, McmpRingBufferType)->ArgsProduct({{1, 2, 3, 4}, {1, 2, 3, 4}})->ArgNames({"Producer Count", "Consumer Count"})->Complexity();
 BENCHMARK_TEMPLATE(throughput_benchmark, ScspRingBufferType)->ArgsProduct({{1}, {1}})->ArgNames({"Producer Count", "Consumer Count"});
-
-BENCHMARK_TEMPLATE(throughput_benchmark, FifoScmpRingBufferType)->ArgsProduct({{1, 2, 3, 4, 5, 6, 7}, {1}})->ArgNames({"Producer Count", "Consumer Count"})->Complexity();
-BENCHMARK_TEMPLATE(throughput_benchmark, FifoMcmpRingBufferType)->ArgsProduct({{1, 2, 3, 4}, {1, 2, 3, 4}})->ArgNames({"Producer Count", "Consumer Count"})->Complexity();
