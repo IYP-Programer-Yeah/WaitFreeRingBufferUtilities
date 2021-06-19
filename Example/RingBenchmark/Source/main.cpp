@@ -49,8 +49,8 @@ class Thread
     };
 
     RingType &ring;
-    std::atomic_uint8_t signal;
-    std::atomic_bool should_stop;
+    std::atomic<std::uint8_t> signal;
+    std::atomic<bool> should_stop;
     std::size_t number_of_processed_elements_per_iteration;
     std::thread thread;
 
